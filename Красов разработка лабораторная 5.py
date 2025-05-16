@@ -50,7 +50,6 @@ class CurrencyConverterStates(StatesGroup):
     add_currency_name = State()
     add_rate = State()
     delete_currency_name = State()
-    delete_rate = State()
     change_rate = State()
     change_currency_name = State()
     convert_name = State()
@@ -187,11 +186,12 @@ async def delete_currency_name(message: types.Message, state:CurrencyConverterSt
     await state.set_state(None)
     await message.reply(f"Валюта: {name} успешно удалена")
 
-# Кнопка "Изменить курс валюты валюту"
+# Кнопка "Изменить курс валюты "
 @dp.callback_query(F.data == 'change_currency')
 async def change_currency(query: types.CallbackQuery, state:CurrencyConverterStates):
    await state.set_state(CurrencyConverterStates.change_currency_name) 
    await bot.send_message(chat_id=query.message.chat.id, text="Введите название валюты, которую вы хотите изменить")
+
 
 @dp.message(CurrencyConverterStates.change_currency_name)
 async def change_currency_nam(message: types.Message, state:CurrencyConverterStates):
