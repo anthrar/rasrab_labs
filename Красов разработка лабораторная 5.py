@@ -19,9 +19,8 @@ from os import path
 from dotenv import dotenv_values
 config = dotenv_values(path.join(path.dirname(__file__), ".env"))
 
-
+# Функция подключения к БД
 def db_connect():
-    global DBS
     conn = psycopg2.connect(
         host = '127.0.0.1',
         database = 'Krasov_rasrab_5',
@@ -29,22 +28,23 @@ def db_connect():
         password = '777'
     )
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    DBS = '%s'
     
     return conn, cur
 
+# Функция для работы с БД
 def db_close(conn, cur):
     conn.commit()
     cur.close()
     conn.close()
 
+# Загрузка значения .env файла в переменную среды окружения. 
 load_dotenv()
-
 
 # получение токена из переменных окружения
 TOKEN = config["API_TOKEN"]
-print(TOKEN)
+#print(TOKEN)
 
+# Создание списка состояний
 class CurrencyConverterStates(StatesGroup):
     check_admin = State()
     add_currency_name = State()
@@ -56,10 +56,13 @@ class CurrencyConverterStates(StatesGroup):
     convert_name = State()
     convert_sum = State()
 
+# Генерация бота
 bot = Bot(token=TOKEN)
 
+# Диспетчер
 dp = Dispatcher()
 
+#Достаю список админов из базы 
 conn, cur = db_connect()
 cur.execute("select chat_id from admins")
 admins_ids = []
@@ -68,6 +71,7 @@ for row in cur.fetchall():
 print(admins_ids)
 db_close(conn, cur)
 
+# Загружаю список всех currency
 def getDBCurrencies():
     conn, cur = db_connect()
     cur.execute("select currency_name, rate from currencies")
@@ -77,7 +81,7 @@ def getDBCurrencies():
     db_close(conn, cur)
     return currencies
 
-#Прописываю пользовательские и администраторские команды
+# Прописываю пользовательские и администраторские команды
 admin_commands = [
     BotCommand(command="/start", description = "Начало" ),
     BotCommand(command="/manage_currency", description = "Работа с валютой" ),
@@ -88,25 +92,27 @@ admin_commands = [
 user_commands = [
     BotCommand(command="/start", description = "Начало" ),
     BotCommand(command="/get_currency", description = "Вывод таблицы валют" ),
-    BotCommand(command="/convert", description = "Вывод таблицы валют" )
+    BotCommand(command="/convert", description = "Конвертация заданной суммы в рубли" )
 ]
 
+# Процедура настройки команд бота
 async def setup_bot_commands(bot:Bot, admins):
-    #Устанавливаю команды для обычных пользователей
+    # Устанавливаю команды для обычных пользователей
     await bot.set_my_commands(user_commands, scope=BotCommandScopeDefault())
 
-    #устанавливаю команды для админов
+    # Устанавливаю команды для админов
     for admin_id in admins:
         await bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=admin_id))
 
 
+# Создание команд
 
-
+# Команда "Начало"
 @dp.message(Command('start'))
 async def start(message: types.Message, state:CurrencyConverterStates):
     await message.reply('Добро пожаловать в бот!')
 
-
+# Команда "Работа с валютой"
 @dp.message(Command('manage_currency'))
 async def manage_currency(message: types.Message, state:CurrencyConverterStates):
     global admins_ids # Обращаюсь к внешней переменной
@@ -121,7 +127,8 @@ async def manage_currency(message: types.Message, state:CurrencyConverterStates)
     builder.button(text="Изменить курс валюты", callback_data="change_currency")
     await message.answer("Выберите то, что вам надо: ", reply_markup=builder.as_markup())
 
-
+# Делаю обработчики кнопок
+# Кнопка "Добавить валюту"
 @dp.callback_query(F.data == 'add_currency')
 async def add_currency(query: types.CallbackQuery, state:CurrencyConverterStates):
    await state.set_state(CurrencyConverterStates.add_currency_name) 
@@ -159,7 +166,7 @@ async def add_rate(message: types.Message, state:CurrencyConverterStates):
     await state.set_state(None)
     await message.reply(f"Валюта: {name} успешно добавлена")
 
-
+# Кнопка "Удалить валюту"
 @dp.callback_query(F.data == 'delete_currency')
 async def delete_currency(query: types.CallbackQuery, state:CurrencyConverterStates):
    await state.set_state(CurrencyConverterStates.delete_currency_name) 
@@ -180,7 +187,7 @@ async def delete_currency_name(message: types.Message, state:CurrencyConverterSt
     await state.set_state(None)
     await message.reply(f"Валюта: {name} успешно удалена")
 
-
+# Кнопка "Изменить курс валюты валюту"
 @dp.callback_query(F.data == 'change_currency')
 async def change_currency(query: types.CallbackQuery, state:CurrencyConverterStates):
    await state.set_state(CurrencyConverterStates.change_currency_name) 
@@ -188,8 +195,9 @@ async def change_currency(query: types.CallbackQuery, state:CurrencyConverterSta
 
 @dp.message(CurrencyConverterStates.change_currency_name)
 async def change_currency_nam(message: types.Message, state:CurrencyConverterStates):
-    name = message.text
+    name = message.text # достаю имя
     currencies = getDBCurrencies() 
+    # Проверка имени 
     if not name in currencies:
         await message.reply("Нет такой валюты, введите ещё раз")
         return
@@ -197,7 +205,6 @@ async def change_currency_nam(message: types.Message, state:CurrencyConverterSta
     await state.update_data(change_currency_name=name)
     await state.set_state(CurrencyConverterStates.change_rate)
     await message.reply("Введите курс:")
-
 
 
 @dp.message(CurrencyConverterStates.change_rate)
@@ -208,7 +215,7 @@ async def change_rate(message: types.Message, state:CurrencyConverterStates):
     except ValueError:
         await message.reply("Неправильное значение, введите ещё раз")
         return
-    data = await state.get_data()
+    data = await state.get_data() # Загружаю сохранённые данные
     name = data.get("change_currency_name", "ERROR")
     await state.update_data(change_currency_name=name)
     await state.set_state(CurrencyConverterStates.change_rate)
@@ -220,6 +227,7 @@ async def change_rate(message: types.Message, state:CurrencyConverterStates):
     await state.set_state(None)
     await message.reply(f"Валюта: {name} успешно изменена")
 
+# Команда "Получить список валют"
 @dp.message(Command('get_currency'))
 async def get_currency(message: types.Message, state:CurrencyConverterStates):
     reply = 'Таблица валют\n\n'
@@ -230,7 +238,7 @@ async def get_currency(message: types.Message, state:CurrencyConverterStates):
  
     await message.reply(reply)
 
-
+# Команда "Конвертировать заданную сумму в рубли"
 @dp.message(Command('convert'))
 async def convert(message: types.Message, state:CurrencyConverterStates):
     await state.set_state(CurrencyConverterStates.convert_name)
