@@ -14,9 +14,9 @@ def rate():
     try:
         currency = request.args.get('currency', '')
         if currency == 'USD':
-            return {"rate": 56 }
+            return {"rate": 80 }
         elif currency == 'EUR':
-            return {"rate": 23 }
+            return {"rate": 90 }
         else:
             return jsonify({"message": "UNKNOWN CURRENCY"}), 400
     except:

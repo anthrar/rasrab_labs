@@ -1,7 +1,6 @@
 import logging
 import os
 import asyncio
-from dotenv import load_dotenv
 from aiogram import Dispatcher, types, Bot
 from aiogram.filters.command import Command
 from aiogram.types.bot_command import BotCommand
@@ -21,24 +20,6 @@ import requests
 
 from dotenv import dotenv_values
 config = dotenv_values(path.join(path.dirname(__file__), ".env_6"))
-
-# Функция подключения к БД
-def db_connect():
-    conn = psycopg2.connect(
-        host = '127.0.0.1',
-        database = 'Krasov_Rasrab_6',
-        user = 'pavel_krasov_knowledge_base',
-        password = '777'
-    )
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    
-    return conn, cur
-
-# Функция для работы с БД
-def db_close(conn, cur):
-    conn.commit()
-    cur.close()
-    conn.close()
 
 
 # получение токена из переменных окружения
@@ -62,7 +43,7 @@ bot = Bot(token=TOKEN)
 # Диспетчер
 dp = Dispatcher()
 
-#
+# Функция проверки является ли пользователь админом
 def IsAdmin(chat_id):
     r = requests.get('http://127.0.0.1:5003/role?chat_id=' + chat_id)
     if r.status_code != 200:

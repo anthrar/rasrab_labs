@@ -30,7 +30,7 @@ def db_close(conn, cur):
 def hello_world():
     return "<p>Hello, World!</p>"
 
-
+# Эндопоинт POST load
 @app.route("/load", methods = ['POST'])
 def load():
     data = request.get_json()

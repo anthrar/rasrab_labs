@@ -1,7 +1,6 @@
 import logging
 import os
 import asyncio
-from dotenv import load_dotenv
 from aiogram import Dispatcher, types, Bot
 from aiogram.filters.command import Command
 from aiogram.types.bot_command import BotCommand
@@ -54,6 +53,20 @@ class CurrencyConverterStates(StatesGroup):
    enter_budget = State()
     
 
+# Список команд
+user_commands = [
+    BotCommand(command="/start", description = "Начало" ),
+    BotCommand(command="/reg", description = "Зарегистрироваться" ),
+    BotCommand(command="/add_operation", description = "Добавить операцию" ),
+    BotCommand(command="/operations", description = "Операции" ),
+    BotCommand(command="/setbudget", description = "Установить бюджет" ),
+]
+
+async def setup_bot_commands(bot:Bot):
+    # Устанавливаю команды для пользователей
+    await bot.set_my_commands(user_commands, scope=BotCommandScopeDefault())
+
+
 # Генерация бота
 bot = Bot(token=TOKEN)
 
@@ -63,7 +76,6 @@ dp = Dispatcher()
 
 def PrintFloat(value):
     return f"{value:.2f}"
-
 
 
 # Команда "Начало"
@@ -130,14 +142,14 @@ async def credit_sum(message: types.Message, state:CurrencyConverterStates):
         return
     await state.update_data(credit_sum=sum)
     await state.set_state(CurrencyConverterStates.credit_date)
-    await message.reply('Пожалуйста, введите дату')
+    await message.reply('Пожалуйста, введите дату в формате ГГГГ-мм-дд')
 @dp.message(CurrencyConverterStates.credit_date)
 async def credit_date(message: types.Message, state:CurrencyConverterStates):
     raw_date = message.text
     try:
         date = datetime.datetime.strptime(raw_date, "%Y-%m-%d")
     except:
-        await message.reply('Введите дату правильно')
+        await message.reply('Введите дату правильно в формате ГГГГ-мм-дд')
         return
     data = await state.get_data()
     sum = data['credit_sum']
@@ -215,14 +227,20 @@ async def RUB(query: types.CallbackQuery, state:CurrencyConverterStates):
     conn, cur = db_connect()
     cur.execute('select * from operations where chat_id=%s', (str(query.message.chat.id), ))
     operations = ''
+    income = 0
+    expence = 0 
     rows = cur.fetchall()
     for row in rows:
         if row["type_operation"] == "credit":
             operation_type = "Расход"
+            expence += row['sum']/rate
         else:
             operation_type = "Доход"
+            income += row['sum']/rate
         operations += (operation_type + ' ' + currency + ' ' + row['date'].strftime('%Y-%m-%d') 
                        + ' ' + PrintFloat(row['sum']/rate) + '\n')
+    operations += "Доход всего " + PrintFloat( income) + '\n'
+    operations += "Расход всего " + PrintFloat( expence) + '\n'
     month = datetime.datetime.now().strftime("%m")
     cur.execute('select budget from budget where month=%s and chat_id=%s', (month, str(query.message.chat.id) ))
     rows = cur.fetchall()
@@ -263,6 +281,7 @@ async def enter_budget(message: types.Message, state:CurrencyConverterStates):
 
 
 async def main():
+    await setup_bot_commands(bot)
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
