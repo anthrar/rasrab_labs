@@ -1,0 +1,7 @@
+10, 10, 10: equilateral
+10, 10, 15: isosceles
+3, 4, 5: nonequilateral
+---
+-3, -4, -5
+aa, bb, cc
+5, 5, 30
